@@ -46,16 +46,16 @@ class SketchToPictureDataset(Dataset):
 		self.images = sorted(os.listdir(base_image_folder))
 
 		# DEBUG
-		#self.cached_result = None
+		self.cached_result = None
 
 	def __len__(self):
 		return len(self.images)
 
 	def __getitem__(self, index):
 		# DEBUG:
-		#index = 0
-		#if self.cached_result is not None:
-		#	return torch.Tensor(numpy.zeros((self.target_height, self.target_width))), self.cached_result
+		index = 0
+		if self.cached_result is not None:
+			return torch.Tensor(numpy.ones((self.target_height, self.target_width))), self.cached_result
 
 		img_path = os.path.join(self.dir, self.images[index])
 		img_pil = Image.open(img_path)
@@ -78,6 +78,6 @@ class SketchToPictureDataset(Dataset):
 		# Now 'sketch' the image.
 		drawing = sketch(img, marker_size=0)
 
-		#self.cached_result = torch.Tensor(img) # DEBUG
-		#return torch.Tensor(drawing), self.cached_result
-		return torch.Tensor(drawing), torch.Tensor(img)
+		self.cached_result = torch.Tensor(img) # DEBUG
+		return torch.Tensor(drawing), self.cached_result
+		#return torch.Tensor(drawing), torch.Tensor(img)

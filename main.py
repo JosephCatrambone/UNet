@@ -21,10 +21,10 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 MODEL_NAME = "drawing_to_animal"
 DATASET_NAME = "cats_and_dogs"
 NUM_WORKERS = 2
-LEARNING_RATE = 0.0001
+LEARNING_RATE = 0.00001
 EPOCHS = 100
 BATCH_SIZE = 2
-CHANGENOTES = "Drop batch size from 8 to 2."
+CHANGENOTES = "Restore model to start setup.  Try cutting resolution in half.  128x128."
 
 
 def record_run_config(filename, output_dir) -> int:
@@ -74,11 +74,15 @@ def train(dataset, model, optimizer, loss_fn, summary_writer=None):
 				# matplotlib_imshow(input_grid)
 				# matplotlib_imshow(result_grid)
 
-				summary_writer.add_scalars('Training Loss', {"Last Training Loss": loss.item(), "Running Loss": total_epoch_loss}, step)
-				summary_writer.flush()
-				total_epoch_loss = 0.0
+				# Write all network params to the log.
+				#for name, weight in model.named_parameters():
+				#	summary_writer.add_histogram(name, weight, step)
+				#	summary_writer.add_histogram(f'{name}.grad', weight.grad, step)
 
-		print(f"Total Loss: {total_epoch_loss} -- Avg: {total_epoch_loss / float(len(dataloop))}")
+				summary_writer.add_scalars('Training Loss', {"Last Training Loss": loss.item(), "Running Loss": total_epoch_loss}, step)
+				total_epoch_loss = 0.0
+				summary_writer.flush()
+
 		torch.save(model.state_dict(), f"models/{MODEL_NAME}_{epoch_idx}")
 
 
@@ -95,12 +99,17 @@ def main():
 
 	transform = None # DEBUG!
 
-	dataset = SketchToPictureDataset(base_image_folder=f"datasets/{DATASET_NAME}", transform=transform)
+	dataset = SketchToPictureDataset(base_image_folder=f"datasets/{DATASET_NAME}", transform=transform, target_width=128, target_height=128)
 	training_loader = torch.utils.data.DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, pin_memory=True)
 
 	# Set up summary writer and record run stats.
 	run_number = record_run_config(MODEL_NAME, "runs")
-	summary_writer = SummaryWriter(f"runs")
+	os.mkdir(os.path.join("runs", str(run_number)))
+	summary_writer = SummaryWriter(f"runs/{run_number}")
+	print(f"Writing summary log to runs/{run_number}")
+
+	# Log the model architecture:
+	summary_writer.add_graph(model, torch.Tensor(numpy.zeros((1,1,dataset.target_height,dataset.target_width))).to(DEVICE))
 
 	train(training_loader, model, optimizer, loss_fn, summary_writer)
 
