@@ -93,8 +93,6 @@ class UNet(nn.Module):
 
 			assert len(skip_x.shape) == 4  # So we don't accidentally unpinch another dimension.
 			concat_skip = torch.cat((skip_x, x), dim=1)  # Dim 1 is channel-dimension.  [b, c, h, w]
-			#concat_skip = torch.cat((x, x), dim=1)  # DEBUG: Skip the skip connection.
-			#concat_skip = torch.cat((skip_x, skip_x), dim=1)  # DEBUG: Skip the U-Net part of the net.
 			x = self.upsamples[idx+1](concat_skip)
 
 		return torch.sigmoid(self.finalconv(x))

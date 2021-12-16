@@ -20,11 +20,11 @@ from model import UNet
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 MODEL_NAME = "drawing_to_animal"
 DATASET_NAME = "cats_and_dogs"
-NUM_WORKERS = 2
-LEARNING_RATE = 0.00001
-EPOCHS = 100
-BATCH_SIZE = 2
-CHANGENOTES = "Restore model to start setup.  Try cutting resolution in half.  128x128."
+NUM_WORKERS = 4
+LEARNING_RATE = 0.0001
+EPOCHS = 20
+BATCH_SIZE = 8
+CHANGENOTES = "Batch size 8.  Change drawing process."
 
 
 def record_run_config(filename, output_dir) -> int:
@@ -39,6 +39,24 @@ def record_run_config(filename, output_dir) -> int:
 		fout.write(f"BATCH_SIZE: {BATCH_SIZE}\n")
 		fout.write(f"CHANGENOTES: {CHANGENOTES}")
 	return run_number
+
+
+def export_model(model, input_channels, input_height, input_width, filename):
+	model.eval()
+	x = torch.randn(1, input_channels, input_height, input_width, requires_grad=True)
+	_output = model(x)
+	torch.onnx.export(
+		model,
+		x,
+		filename,
+		export_params=True,
+		opset_version=10,
+		do_constant_folding=True,
+		input_names=['input'],
+		output_names=['output'],
+		dynamic_axes={'input': {0: 'batch_size'}, 'output': {0: 'batch_size'}}
+	)
+	model.train()
 
 
 def train(dataset, model, optimizer, loss_fn, summary_writer=None):
@@ -84,6 +102,7 @@ def train(dataset, model, optimizer, loss_fn, summary_writer=None):
 				summary_writer.flush()
 
 		torch.save(model.state_dict(), f"models/{MODEL_NAME}_{epoch_idx}")
+		#export_model(model, 1, 128, 128, f"models/{MODEL_NAME}_{epoch_idx}.onnx")
 
 
 def main():
@@ -96,8 +115,6 @@ def main():
 		transforms.RandomHorizontalFlip(),
 		#transforms.ToTensor(),  # Don't do a ToTensor conversion at the end.
 	])
-
-	transform = None # DEBUG!
 
 	dataset = SketchToPictureDataset(base_image_folder=f"datasets/{DATASET_NAME}", transform=transform, target_width=128, target_height=128)
 	training_loader = torch.utils.data.DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, pin_memory=True)

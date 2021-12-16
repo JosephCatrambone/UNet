@@ -26,8 +26,8 @@ def sketch(numpy_image, marker_size:int = 2, lightness: float = None):
 	#noise = numpy.random.uniform(low=filtered_image.min()*(1.0-line_density), high=filtered_image.max()*line_density, size=filtered_image.shape[0:2])
 	#drawing = (filtered_image < noise).astype(numpy.float)
 	if lightness is None:
-		lightness = numpy.median(filtered_image)/filtered_image.max()
-	drawing = (filtered_image > filtered_image.max()*lightness)
+		lightness = 0.6
+	drawing = (filtered_image > numpy.percentile(filtered_image, 100*lightness))
 
 	if marker_size > 0:
 		drawing = dilation(drawing, disk(marker_size))
@@ -35,7 +35,7 @@ def sketch(numpy_image, marker_size:int = 2, lightness: float = None):
 
 
 class SketchToPictureDataset(Dataset):
-	def __init__(self, base_image_folder, transform=None, target_width:int = 256, target_height:int = 256):
+	def __init__(self, base_image_folder, transform=None, target_width:int = 128, target_height:int = 128):
 		super(SketchToPictureDataset, self).__init__()
 		self.dir = base_image_folder
 		self.resize_op = transforms.Resize(size=[target_height, target_width])
@@ -45,18 +45,10 @@ class SketchToPictureDataset(Dataset):
 		self.transform = transform
 		self.images = sorted(os.listdir(base_image_folder))
 
-		# DEBUG
-		self.cached_result = None
-
 	def __len__(self):
 		return len(self.images)
 
 	def __getitem__(self, index):
-		# DEBUG:
-		index = 0
-		if self.cached_result is not None:
-			return torch.Tensor(numpy.ones((self.target_height, self.target_width))), self.cached_result
-
 		img_path = os.path.join(self.dir, self.images[index])
 		img_pil = Image.open(img_path)
 
@@ -78,6 +70,4 @@ class SketchToPictureDataset(Dataset):
 		# Now 'sketch' the image.
 		drawing = sketch(img, marker_size=0)
 
-		self.cached_result = torch.Tensor(img) # DEBUG
-		return torch.Tensor(drawing), self.cached_result
-		#return torch.Tensor(drawing), torch.Tensor(img)
+		return torch.Tensor(drawing), torch.Tensor(img)
