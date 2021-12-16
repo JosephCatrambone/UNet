@@ -1,0 +1,6 @@
+MODEL NAME: drawing_to_animal
+DATASET NAME: cats_and_dogs
+LEARNING_RATE: 0.0001
+EPOCHS: 100
+BATCH_SIZE: 2
+CHANGENOTES: Set padding back to zero because I can't make the resize work. Update pytorch from 1.5 to 1.10.

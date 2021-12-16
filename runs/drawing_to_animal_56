@@ -1,0 +1,6 @@
+MODEL NAME: drawing_to_animal
+DATASET NAME: cats_and_dogs
+LEARNING_RATE: 1e-05
+EPOCHS: 100
+BATCH_SIZE: 2
+CHANGENOTES: That didn't work. Back to 0, 3, 1, 2. Moving flush out to avoid breaks during long training. Trying more.

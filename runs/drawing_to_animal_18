@@ -1,0 +1,6 @@
+MODEL NAME: drawing_to_animal
+DATASET NAME: cats_and_dogs
+LEARNING_RATE: 0.0001
+EPOCHS: 100
+BATCH_SIZE: 2
+CHANGENOTES: Disable one of the Relus in the double conv to get a 5x5 effective conv.

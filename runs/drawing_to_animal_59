@@ -1,0 +1,6 @@
+MODEL NAME: drawing_to_animal
+DATASET NAME: cats_and_dogs
+LEARNING_RATE: 1e-05
+EPOCHS: 100
+BATCH_SIZE: 2
+CHANGENOTES: Go back to ConvTranspose but skip the skip connection to try and debug.  Next: only skip connections.

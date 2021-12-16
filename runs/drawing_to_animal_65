@@ -1,0 +1,6 @@
+MODEL NAME: drawing_to_animal
+DATASET NAME: cats_and_dogs
+LEARNING_RATE: 0.0001
+EPOCHS: 20
+BATCH_SIZE: 8
+CHANGENOTES: Batch size 8.  Epochs from 100 to 20.  Bump learning rate.
