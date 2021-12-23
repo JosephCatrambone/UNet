@@ -18,13 +18,13 @@ from model import UNet
 #wandb.init(project="drawing_to_art", entity="josephc")
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-MODEL_NAME = "drawing_to_animal"
-DATASET_NAME = "cats_and_dogs"
+MODEL_NAME = "drawing_to_cat"
+DATASET_NAME = "cats"
 NUM_WORKERS = 4
-LEARNING_RATE = 0.0001
-EPOCHS = 20
-BATCH_SIZE = 8
-CHANGENOTES = "Batch size 8.  Change drawing process."
+LEARNING_RATE = 0.01
+EPOCHS = 100
+BATCH_SIZE = 16
+CHANGENOTES = "Previous run failed because an image was smaller than the min crop.  Random crop, more transforms, bump learning rate and epochs back to 100."
 
 
 def record_run_config(filename, output_dir) -> int:
@@ -105,14 +105,21 @@ def train(dataset, model, optimizer, loss_fn, summary_writer=None):
 		#export_model(model, 1, 128, 128, f"models/{MODEL_NAME}_{epoch_idx}.onnx")
 
 
-def main():
+def main(model_start_file=None):
 	model = UNet(in_channels=1, out_channels=3).to(device=DEVICE)
 	loss_fn = nn.L1Loss()
 	optimizer = opt.Adam(model.parameters(), lr=LEARNING_RATE)
 
+	if model_start_file:
+		print(f"Restarting from checkpoint {model_start_file}")
+		model.load_state_dict(torch.load(model_start_file))
+
 	transform = transforms.Compose([
 		#transforms.Normalize((0.5,), (0.5,)),
 		transforms.RandomHorizontalFlip(),
+		transforms.RandomRotation(20),
+		transforms.Resize((256,256)),
+		transforms.RandomCrop((128, 128)),
 		#transforms.ToTensor(),  # Don't do a ToTensor conversion at the end.
 	])
 
@@ -128,8 +135,15 @@ def main():
 	# Log the model architecture:
 	summary_writer.add_graph(model, torch.Tensor(numpy.zeros((1,1,dataset.target_height,dataset.target_width))).to(DEVICE))
 
+	# Train
 	train(training_loader, model, optimizer, loss_fn, summary_writer)
+
+	# Write to file.
+	export_model(model, 1, dataset.target_height, dataset.target_width, "result_model.onnx")
 
 
 if __name__=="__main__":
-	main()
+	starting_file = None
+	if len(sys.argv) > 1:
+		starting_file = sys.argv[1]
+	main(starting_file)

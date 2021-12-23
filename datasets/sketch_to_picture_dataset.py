@@ -3,7 +3,9 @@ import os
 import numpy
 from PIL import Image
 #from skimage.filters import difference_of_gaussians
-from skimage.filters import sobel
+from skimage.filters import sobel, gaussian
+#from skimage.filters._gaussian import gaussian
+#from skimage.filters.edges import sobel
 from skimage.morphology import dilation, disk
 from torch.utils.data import Dataset
 import torch
@@ -20,17 +22,22 @@ def sketch(numpy_image, marker_size:int = 2, lightness: float = None):
 		img = numpy_image.sum(axis=-1) / numpy_image.shape[-1]
 	else:
 		img = numpy_image
+	# Try thresholding the image first, then edge filtering.
+	img = (img > img.mean()).astype(numpy.float)
 	#filtered_image = difference_of_gaussians(img, 1, 4)  # One is a stonger edge here.
 	filtered_image = sobel(img)  # 1.0 is the stronger edge here.
+
 	# Go through and probabalistically add points.
 	#noise = numpy.random.uniform(low=filtered_image.min()*(1.0-line_density), high=filtered_image.max()*line_density, size=filtered_image.shape[0:2])
 	#drawing = (filtered_image < noise).astype(numpy.float)
+
 	if lightness is None:
-		lightness = 0.6
+		lightness = 0.5
 	drawing = (filtered_image > numpy.percentile(filtered_image, 100*lightness))
 
 	if marker_size > 0:
 		drawing = dilation(drawing, disk(marker_size))
+	#return dilation(1.0 - drawing, disk(2))
 	return 1.0 - drawing
 
 
