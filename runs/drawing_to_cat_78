@@ -1,0 +1,6 @@
+MODEL NAME: drawing_to_cat
+DATASET NAME: cats
+LEARNING_RATE: 0.001
+EPOCHS: 100
+BATCH_SIZE: 16
+CHANGENOTES: Trying just cat pictures.

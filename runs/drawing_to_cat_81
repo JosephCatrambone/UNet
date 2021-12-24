@@ -1,0 +1,6 @@
+MODEL NAME: drawing_to_cat
+DATASET NAME: cats
+LEARNING_RATE: 0.01
+EPOCHS: 100
+BATCH_SIZE: 16
+CHANGENOTES: Previous run failed because an image was smaller than the min crop.  Random crop, more transforms, bump learning rate and epochs back to 100.

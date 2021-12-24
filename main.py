@@ -12,19 +12,19 @@ from tqdm import tqdm
 # For recording progress and showing outputs:
 from torch.utils.tensorboard import SummaryWriter
 
-from datasets.sketch_to_picture_dataset import SketchToPictureDataset
+#from datasets.sketch_to_picture_dataset import SketchToPictureDataset
+from datasets.ocr import TextDetectionDataset
 from model import UNet
 
 #wandb.init(project="drawing_to_art", entity="josephc")
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-MODEL_NAME = "drawing_to_cat"
-DATASET_NAME = "cats"
+MODEL_NAME = "ocr_text_detect"
 NUM_WORKERS = 4
-LEARNING_RATE = 0.01
+LEARNING_RATE = 0.001
 EPOCHS = 100
 BATCH_SIZE = 16
-CHANGENOTES = "Previous run failed because an image was smaller than the min crop.  Random crop, more transforms, bump learning rate and epochs back to 100."
+CHANGENOTES = "First pass at OCR text detection with UNet."
 
 
 def record_run_config(filename, output_dir) -> int:
@@ -33,7 +33,6 @@ def record_run_config(filename, output_dir) -> int:
 	run_number = previous_runs+1  # One indexed.  Whatever.
 	with open(os.path.join(output_dir, f"{filename}_{run_number}"), 'wt') as fout:
 		fout.write(f"MODEL NAME: {MODEL_NAME}\n")
-		fout.write(f"DATASET NAME: {DATASET_NAME}\n")
 		fout.write(f"LEARNING_RATE: {LEARNING_RATE}\n")
 		fout.write(f"EPOCHS: {EPOCHS}\n")
 		fout.write(f"BATCH_SIZE: {BATCH_SIZE}\n")
@@ -106,7 +105,7 @@ def train(dataset, model, optimizer, loss_fn, summary_writer=None):
 
 
 def main(model_start_file=None):
-	model = UNet(in_channels=1, out_channels=3).to(device=DEVICE)
+	model = UNet(in_channels=3, out_channels=1).to(device=DEVICE)
 	loss_fn = nn.L1Loss()
 	optimizer = opt.Adam(model.parameters(), lr=LEARNING_RATE)
 
@@ -123,7 +122,7 @@ def main(model_start_file=None):
 		#transforms.ToTensor(),  # Don't do a ToTensor conversion at the end.
 	])
 
-	dataset = SketchToPictureDataset(base_image_folder=f"datasets/{DATASET_NAME}", transform=transform, target_width=128, target_height=128)
+	dataset = TextDetectionDataset(base_image_folder=f"datasets/train2017/*.jpg", target_width=128, target_height=128)
 	training_loader = torch.utils.data.DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, pin_memory=True)
 
 	# Set up summary writer and record run stats.
