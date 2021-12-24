@@ -17,11 +17,11 @@ class DoubleConv(nn.Module):
 			# No bias 'cause we're using BatchNorm.  It will get cancelled out.
 			nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=False),
 			nn.BatchNorm2d(out_channels),
-			nn.LeakyReLU(inplace=True),
+			nn.SiLU(inplace=True),
 
 			nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=False),
 			nn.BatchNorm2d(out_channels),
-			nn.LeakyReLU(inplace=True),
+			nn.SiLU(inplace=True),
 		)
 
 	def forward(self, x):

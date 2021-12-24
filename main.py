@@ -22,9 +22,9 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 MODEL_NAME = "ocr_text_detect"
 NUM_WORKERS = 4
 LEARNING_RATE = 0.001
-EPOCHS = 100
+EPOCHS = 3
 BATCH_SIZE = 16
-CHANGENOTES = "First pass at OCR text detection with UNet."
+CHANGENOTES = "Changing threshold for what is considered a light background.  Want darker text."
 
 
 def record_run_config(filename, output_dir) -> int:
@@ -64,8 +64,8 @@ def train(dataset, model, optimizer, loss_fn, summary_writer=None):
 		total_epoch_loss = 0.0
 		for batch_idx, (data, targets) in enumerate(dataloop):
 			step = (epoch_idx * len(dataloop)) + batch_idx
-			data = data.unsqueeze(1).to(device=DEVICE)  # NOTE: Input is greyscale, so we unsqueeze channels at 1.
-			tgt = targets.float().permute(0, 3, 1, 2).to(device=DEVICE)
+			data = data.permute(0, 3, 1, 2).to(device=DEVICE)
+			tgt = targets.float().unsqueeze(1).to(device=DEVICE)  # NOTE: Output is greyscale, so we unsqueeze channels at 1.
 			optimizer.zero_grad()
 
 			# Forward
@@ -105,7 +105,7 @@ def train(dataset, model, optimizer, loss_fn, summary_writer=None):
 
 
 def main(model_start_file=None):
-	model = UNet(in_channels=3, out_channels=1).to(device=DEVICE)
+	model = UNet(in_channels=3, out_channels=1, feature_counts=[4, 8, 16]).to(device=DEVICE)
 	loss_fn = nn.L1Loss()
 	optimizer = opt.Adam(model.parameters(), lr=LEARNING_RATE)
 
@@ -122,7 +122,7 @@ def main(model_start_file=None):
 		#transforms.ToTensor(),  # Don't do a ToTensor conversion at the end.
 	])
 
-	dataset = TextDetectionDataset(base_image_folder=f"datasets/train2017/*.jpg", target_width=128, target_height=128)
+	dataset = TextDetectionDataset(base_image_folder=f"datasets\\text_images_mscoco_2014\\no_text\\", font_directory=f"datasets\\fonts\\*.ttf", target_width=256, target_height=256)
 	training_loader = torch.utils.data.DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, pin_memory=True)
 
 	# Set up summary writer and record run stats.
@@ -132,13 +132,13 @@ def main(model_start_file=None):
 	print(f"Writing summary log to runs/{run_number}")
 
 	# Log the model architecture:
-	summary_writer.add_graph(model, torch.Tensor(numpy.zeros((1,1,dataset.target_height,dataset.target_width))).to(DEVICE))
+	summary_writer.add_graph(model, torch.Tensor(numpy.zeros((1,3,dataset.target_height,dataset.target_width))).to(DEVICE))
 
 	# Train
 	train(training_loader, model, optimizer, loss_fn, summary_writer)
 
 	# Write to file.
-	export_model(model, 1, dataset.target_height, dataset.target_width, "result_model.onnx")
+	export_model(model, 3, dataset.target_height, dataset.target_width, "result_model.onnx")
 
 
 if __name__=="__main__":
