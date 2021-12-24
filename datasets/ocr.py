@@ -39,10 +39,11 @@ class TextDetectionDataset(Dataset):
 		import json
 		with open(os.path.join("datasets", "text_images_mscoco_2014", "image_data_by_name.json"), 'rt') as fin:
 			img_data = json.load(fin)
-		for img_filename in iglob("datasets/text_images_mscoco_2014/all_legible_text/*"):
+		for img_fullpath in iglob("datasets/text_images_mscoco_2014/all_legible_text/*"):
+			img_filename = os.path.split(img_fullpath)[-1]
 			if img_filename not in img_data:
+				print(img_filename)
 				continue
-			annotation = img_data[img_filename]
 			sample_annotation = """{
 				'mask': [197.5, 108.0, 196.5, 118.0, 241.5, 120.2, 241.9, 109.6],
 			    'class': 'machine printed',
@@ -54,25 +55,43 @@ class TextDetectionDataset(Dataset):
 			    'utf8_string': 'BARNES',
 			    'legibility': 'legible'}]}
 			"""
-			img = Image.open(img_filename).convert('RGB')
+			img = Image.open(img_fullpath).convert('RGB')
 			if img.size[0] < self.target_width or img.size[1] < self.target_height:
 				continue
 			# Make the mask image the size of the original so the annotations match up, then we can crop later.
 			mask = Image.new('L', img.size, color=0)
 			d = ImageDraw.Draw(mask)
-			d.polygon(annotation['mask'], fill='white')
-			text_bounding_box = annotation['bbox']
-			bb_x, bb_y, bb_w, bb_h = text_bounding_box
-			center_x = bb_x + (bb_w//2)
-			center_y = bb_y + (bb_h//2)
+			mean_center_x = 0
+			mean_center_y = 0
+			for annotation in img_data[img_filename]['annotations']:
+				d.polygon(annotation['mask'], fill='white')
+				text_bounding_box = annotation['bbox']
+				bb_x, bb_y, bb_w, bb_h = text_bounding_box
+				center_x = bb_x + (bb_w//2)
+				center_y = bb_y + (bb_h//2)
+				mean_center_x += center_x
+				mean_center_y += center_y
+			center_x = mean_center_x // len(img_data[img_filename]['annotations'])
+			center_y = mean_center_x // len(img_data[img_filename]['annotations'])
+			# Most of the images are 640x480-ish, so if we can resize to around 256x256 and then crop we will get more in frame.
+			img.resize((img.size[0]//2, img.size[1]//2))
+			mask.resize((mask.size[0]//2, mask.size[1]//2))
+			center_x = center_x // 2  # Don't forget to move these!
+			center_y = center_y // 2
 			# Try and crop around the center.
-			crop_box = (center_x - self.target_width//2, center_y - self.target_height//2, center_x + self.target_width//2, center_y + self.target_height//2)
+			left = max(0, center_x - self.target_width//2)
+			top = max(0, center_y - self.target_height//2)
+			right = left + self.target_width
+			bottom = top + self.target_height
+			crop_box = (left, top, right, bottom)
 			img_crop = img.crop(crop_box)
 			mask_crop = mask.crop(crop_box)
 			images.append(img_crop)
 			masks.append(mask_crop)
+			# Might need to break early.
 			if max_images > 0 and len(images) >= max_images:
-				return images, masks
+				break
+		return images, masks
 
 	def __len__(self):
 		return len(self.images)
