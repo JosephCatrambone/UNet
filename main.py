@@ -24,7 +24,7 @@ NUM_WORKERS = 4
 LEARNING_RATE = 0.001
 EPOCHS = 3
 BATCH_SIZE = 16
-CHANGENOTES = "Changing threshold for what is considered a light background.  Want darker text."
+CHANGENOTES = "Bugfix in validation loss. Add validation set."
 
 
 def record_run_config(filename, output_dir) -> int:
@@ -58,7 +58,7 @@ def export_model(model, input_channels, input_height, input_width, filename):
 	model.train()
 
 
-def train(dataset, model, optimizer, loss_fn, summary_writer=None):
+def train(dataset, model, optimizer, loss_fn, summary_writer=None, validation_set=None):
 	for epoch_idx in range(EPOCHS):
 		dataloop = tqdm(dataset)
 		total_epoch_loss = 0.0
@@ -78,25 +78,36 @@ def train(dataset, model, optimizer, loss_fn, summary_writer=None):
 
 			# Log status.
 			total_epoch_loss += loss.item()
-			#wandb.log({"loss": loss})
-			#wandb.watch(model)
+
 			if summary_writer and batch_idx % 100 == 0:
 				# Save sample images.
 				input_grid = torchvision.utils.make_grid(data)
-				summary_writer.add_image("Input Grid", input_grid, step)
 				target_grid = torchvision.utils.make_grid(tgt)
-				summary_writer.add_image("Target Grid", target_grid, step)
 				output_grid = torchvision.utils.make_grid(preds)
+				summary_writer.add_image("Input Grid", input_grid, step)
+				summary_writer.add_image("Target Grid", target_grid, step)
 				summary_writer.add_image("Output Grid", output_grid, step)
-				# matplotlib_imshow(input_grid)
-				# matplotlib_imshow(result_grid)
+
+				validation_loss = 0
+				if validation_set:
+					model.eval()
+					preds = model(validation_set[0])
+					val_loss = loss_fn(preds, validation_set[1])
+					validation_loss = val_loss.item()
+					validation_input_grid = torchvision.utils.make_grid(validation_set[0][:16,:,:,:])
+					summary_writer.add_image("Validation Input Grid", validation_input_grid, step)
+					validation_target_grid = torchvision.utils.make_grid(validation_set[1][:16,:,:,:])
+					summary_writer.add_image("Validation Target Grid", validation_target_grid, step)
+					validation_output_grid = torchvision.utils.make_grid(preds[:16])
+					summary_writer.add_image("Validation Output Grid", validation_output_grid, step)
+					model.train()
 
 				# Write all network params to the log.
 				#for name, weight in model.named_parameters():
 				#	summary_writer.add_histogram(name, weight, step)
 				#	summary_writer.add_histogram(f'{name}.grad', weight.grad, step)
 
-				summary_writer.add_scalars('Training Loss', {"Last Training Loss": loss.item(), "Running Loss": total_epoch_loss}, step)
+				summary_writer.add_scalars('Losses', {"Last Training Loss": loss.item(), "Running Loss": total_epoch_loss, "Validation Loss": validation_loss}, step)
 				total_epoch_loss = 0.0
 				summary_writer.flush()
 
@@ -134,8 +145,13 @@ def main(model_start_file=None):
 	# Log the model architecture:
 	summary_writer.add_graph(model, torch.Tensor(numpy.zeros((1,3,dataset.target_height,dataset.target_width))).to(DEVICE))
 
+	# Get a validation set.
+	validation_images, validation_masks = dataset.make_validation_set(32)
+	validation_images = torch.Tensor(numpy.asarray([numpy.asarray(img) / 255.0 for img in validation_images])).permute(0, 3, 1, 2).to(device=DEVICE)
+	validation_masks = torch.Tensor(numpy.asarray([numpy.asarray(mask) / 255.0 for mask in validation_masks])).unsqueeze(1).to(device=DEVICE)
+
 	# Train
-	train(training_loader, model, optimizer, loss_fn, summary_writer)
+	train(training_loader, model, optimizer, loss_fn, summary_writer=summary_writer, validation_set=(validation_images, validation_masks))
 
 	# Write to file.
 	export_model(model, 3, dataset.target_height, dataset.target_width, "result_model.onnx")

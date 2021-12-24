@@ -1,7 +1,7 @@
 import os
 import random
 import string
-from glob import iglob
+from glob import glob, iglob
 
 import numpy
 import torch
@@ -39,7 +39,8 @@ class TextDetectionDataset(Dataset):
 		import json
 		with open(os.path.join("datasets", "text_images_mscoco_2014", "image_data_by_name.json"), 'rt') as fin:
 			img_data = json.load(fin)
-		for img_fullpath in iglob("datasets/text_images_mscoco_2014/all_legible_text/*"):
+		all_image_filenames = glob("datasets/text_images_mscoco_2014/all_legible_text/*")
+		for img_fullpath in [random.choice(all_image_filenames) for _ in range(max_images)]:
 			img_filename = os.path.split(img_fullpath)[-1]
 			if img_filename not in img_data:
 				print(img_filename)
@@ -86,6 +87,13 @@ class TextDetectionDataset(Dataset):
 			crop_box = (left, top, right, bottom)
 			img_crop = img.crop(crop_box)
 			mask_crop = mask.crop(crop_box)
+
+			# Hack: Some masks are empty and we want to shuffle our dataset a bit to emphasize interesting cases.
+			# We're not training on this, so it's not a problem.
+			# Keep empty images with only a 10% chance.
+			if numpy.asarray(mask_crop).sum() < 10 and random.randint(0, 10) > 1:
+				continue
+
 			images.append(img_crop)
 			masks.append(mask_crop)
 			# Might need to break early.
